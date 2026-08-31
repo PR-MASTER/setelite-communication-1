@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SatLink LED – Working Chat</title>
+<style>
+  :root {
+    --bg: #03060c;
+    --card: #071018;
+    --accent: #00ff9d;
+    --accent2: #00e5ff;
+    --pink: #ff2bd6;
+    --warn: #ffea00;
+    --danger: #ff3b3b;
+    --text: #e8fff6;
+    --muted: #6f8b86;
+    --led: 0 0 8px #00ff9d, 0 0 18px #00ff9d66;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: "Segoe UI", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  body::before {
+    content: "";
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background:
+      repeating-linear-gradient(0deg, transparent 0 2px, rgba(0,255,157,0.03) 2px 3px),
+      radial-gradient(circle at 20% 10%, #00ff9d18, transparent 40%),
+      radial-gradient(circle at 80% 90%, #00e5ff14, transparent 40%);
+  }
+  .wrap { position: relative; z-index: 1; max-width: 520px; margin: 0 auto; min-height: 100vh; }
+  .led-line {
+    height: 3px;
+    background: linear-gradient(90deg, transparent, var(--accent), var(--accent2), var(--pink), transparent);
+    box-shadow: var(--led);
+  }
+  .auth-box, .app { display: none; }
+  .auth-box.show, .app.show { display: block; }
+  .brand { text-align: center; margin: 24px 0; padding: 0 16px; }
+  .brand h1 { font-size: 1.7rem; letter-spacing: 2px; color: var(--accent); text-shadow: var(--led); }
+  .brand p { color: var(--muted); font-size: .85rem; margin-top: 8px; }
+  .auth-box { padding: 0 18px 40px; }
+  label { font-size: .8rem; color: var(--muted); display: block; margin-top: 12px; }
+  input, select, textarea {
+    width: 100%; background: #03110c; border: 1px solid #0f4a3d; color: var(--text);
+    border-radius: 10px; padding: 12px 14px; font-size: 1rem; outline: none; margin-top: 6px;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: var(--led); }
+  .btn {
+    width: 100%; border: 0; border-radius: 12px; padding: 14px; font-weight: 700; font-size: 1rem;
+    cursor: pointer; margin-top: 14px; color: #02110c;
+    background: linear-gradient(90deg, var(--accent), var(--accent2)); box-shadow: var(--led);
+  }
+  .btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); box-shadow: none; }
+  .btn.pink { background: linear-gradient(90deg, var(--pink), #ff7ae8); color: #1a0014; }
+  .btn.small { width: auto; padding: 8px 12px; font-size: .8rem; margin: 0; }
+  .btn.danger { background: #3a1010; color: var(--danger); border: 1px solid var(--danger); box-shadow: none; }
+  .hint { color: var(--muted); font-size: .78rem; margin-top: 12px; line-height: 1.45; }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 14px; background: #04140fdd; border-bottom: 1px solid #0f4a3d;
+    position: sticky; top: 0; z-index: 20;
+  }
+  .logo { font-weight: 800; color: var(--accent); text-shadow: var(--led); display: flex; gap: 8px; align-items: center; }
+  .who { font-size: .75rem; color: var(--muted); text-align: right; }
+  .who b { color: var(--accent); }
+  .tabs { display: flex; gap: 6px; padding: 10px 12px; overflow-x: auto; }
+  .tab {
+    flex: 1; min-width: 70px; background: #03110c; border: 1px solid #0f4a3d;
+    color: var(--muted); border-radius: 999px; padding: 8px 6px; font-size: .75rem; cursor: pointer;
+  }
+  .tab.on { color: #02110c; background: var(--accent); box-shadow: var(--led); font-weight: 700; }
+  .page { display: none; padding: 0 12px 100px; }
+  .page.on { display: block; }
+  .card {
+    background: #06150f; border: 1px solid #0f4a3d; border-radius: 14px;
+    padding: 14px; margin-bottom: 12px;
+  }
+  .card h3 { color: var(--accent); font-size: .95rem; margin-bottom: 10px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .user-item { border-bottom: 1px solid #0d3a32; padding: 10px 0; }
+  .user-item:last-child { border-bottom: 0; }
+  .badge {
+    display: inline-block; font-size: .65rem; padding: 2px 7px; border-radius: 999px;
+    border: 1px solid var(--accent); color: var(--accent); margin-left: 6px;
+  }
+  .badge.admin { border-color: var(--pink); color: var(--pink); }
+  .chat-box {
+    height: 320px; overflow-y: auto; background: #020a08; border: 1px solid #0f4a3d;
+    border-radius: 12px; padding: 10px; margin-top: 8px;
+  }
+  .bubble {
+    max-width: 88%; padding: 9px 11px; border-radius: 12px; margin: 8px 0; font-size: .9rem; line-height: 1.35;
+  }
+  .bubble.me { margin-left: auto; background: #083328; border: 1px solid var(--accent); }
+  .bubble.them { background: #0a1220; border: 1px solid #1a4d66; }
+  .bubble .meta { font-size: .68rem; color: var(--muted); margin-bottom: 3px; }
+  .when-tag { font-size: .65rem; margin-top: 4px; color: var(--warn); }
+  .toast {
+    position: fixed; top: 60px; left: 50%; transform: translateX(-50%) translateY(-12px);
+    background: #04140f; border: 1px solid var(--accent); color: var(--text);
+    padding: 10px 16px; border-radius: 10px; opacity: 0; transition: .25s; z-index: 50;
+    box-shadow: var(--led); font-size: .85rem; pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  footer {
+    position: fixed; bottom: 0; left: 0; right: 0; max-width: 520px; margin: 0 auto;
+    background: #04140fee; border-top: 1px solid #0f4a3d;
+    display: flex; justify-content: space-around; padding: 8px 0 14px;
+  }
+  footer button { background: none; border: 0; color: var(--muted); font-size: .68rem; cursor: pointer; }
+  footer button span { display: block; font-size: 1.15rem; }
+  .empty { color: var(--muted); font-size: .85rem; padding: 12px 0; }
+  .demo-box {
+    background: #031a12; border: 1px dashed #0f4a3d; border-radius: 10px;
+    padding: 10px; margin-top: 14px; font-size: .78rem; color: var(--muted);
+  }
+  .demo-box b { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="led-line"></div>
+  <div class="toast" id="toast"></div>
+
+  <!-- LOGIN -->
+  <section class="auth-box show" id="loginBox">
+    <div class="brand">
+      <h1>SATLINK LED</h1>
+      <p>Talk · text · admin · users</p>
+    </div>
+    <label>User ID</label>
+    <input id="loginId" placeholder="admin / user1 / user2" autocomplete="username">
+    <label>Password</label>
+    <input id="loginPass" type="password" placeholder="password" autocomplete="current-password">
+    <button class="btn" onclick="doLogin()">Enter Network</button>
+    <div class="demo-box">
+      <div><b>Admin:</b> admin &nbsp; / &nbsp; admin123</div>
+      <div><b>User One:</b> user1 &nbsp; / &nbsp; 1234</div>
+      <div><b>User Two:</b> user2 &nbsp; / &nbsp; 1234</div>
+      <div style="margin-top:8px">Login as admin → see all users → send message to user1.<br>
+      Then logout → login as user1 → see admin message.</div>
+    </div>
+    <button class="btn ghost" style="margin-top:10px" onclick="resetAllData()">Reset demo data</button>
+  </section>
+
+  <!-- APP -->
+  <section class="app" id="appBox">
+    <header>
+      <div class="logo">📡 SATLINK</div>
+      <div class="who">Signed in as <b id="whoName">-</b><br><span id="whoRole">-</span></div>
+    </header>
+
+    <div class="tabs">
+      <button class="tab on" id="tab-talk" onclick="showPage('talk')">Talk</button>
+      <button class="tab" id="tab-users" onclick="showPage('users')">Users</button>
+      <button class="tab" id="tab-device" onclick="showPage('device')">Device</button>
+      <button class="tab" id="tab-admin" onclick="showPage('admin')">Admin</button>
+    </div>
+
+    <!-- TALK -->
+    <div class="page on" id="page-talk">
+      <div class="card">
+        <h3>Send message</h3>
+        <label>To user</label>
+        <select id="toUser"></select>
+        <p class="hint" id="toUserHint"></p>
+        <label>When (past / now / future)</label>
+        <input type="datetime-local" id="msgWhen">
+        <div class="row" style="margin-top:8px">
+          <button class="btn small ghost" type="button" onclick="setWhen('past')">Past</button>
+          <button class="btn small" type="button" onclick="setWhen('now')">Now</button>
+          <button class="btn small pink" type="button" onclick="setWhen('future')">Future</button>
+        </div>
+        <label>Text</label>
+        <textarea id="msgText" rows="3" placeholder="Type message to send..."></textarea>
+        <button class="btn" onclick="sendMsg()">Send via satellite</button>
+      </div>
+      <div class="card">
+        <h3>Inbox / Chat</h3>
+        <div class="chat-box" id="chatBox"><div class="empty">No messages yet</div></div>
+        <button class="btn ghost" style="margin-top:8px" onclick="renderChat()">Refresh chat</button>
+      </div>
+    </div>
+
+    <!-- USERS -->
+    <div class="page" id="page-users">
+      <div class="card">
+        <h3>People on network</h3>
+        <div id="userList"></div>
+      </div>
+    </div>
+
+    <!-- DEVICE -->
+    <div class="page" id="page-device">
+      <div class="card">
+        <h3>Satellite device</h3>
+        <p class="hint">LED link simulation. Messages save in this browser so admin and users can talk.</p>
+        <button class="btn" onclick="toast('Satellite link locked')">Lock link</button>
+        <button class="btn ghost" onclick="doLogout()">Logout</button>
+      </div>
+    </div>
+
+    <!-- ADMIN -->
+    <div class="page" id="page-admin">
+      <div class="card">
+        <h3>Admin: add user</h3>
+        <label>New User ID</label>
+        <input id="newId" placeholder="example: ravi">
+        <label>Name</label>
+        <input id="newName" placeholder="Display name">
+        <label>Password</label>
+        <input id="newPass" placeholder="password">
+        <label>Role</label>
+        <select id="newRole">
+          <option value="user">User</option>
+          <option value="admin">Admin</option>
+        </select>
+        <button class="btn pink" onclick="adminAddUser()">Add user</button>
+      </div>
+      <div class="card">
+        <h3>All accounts</h3>
+        <div id="adminUsers"></div>
+        <button class="btn danger" style="margin-top:10px" onclick="resetAllData()">Reset all data</button>
+      </div>
+    </div>
+
+    <footer>
+      <button onclick="showPage('talk')"><span>💬</span>Talk</button>
+      <button onclick="showPage('users')"><span>👥</span>Users</button>
+      <button onclick="showPage('device')"><span>📡</span>Device</button>
+      <button onclick="doLogout()"><span>⏻</span>Out</button>
+    </footer>
+  </section>
+</div>
+
+<script>
+const USERS_KEY = "satlink_users_v3";
+const MSGS_KEY  = "satlink_msgs_v3";
+const SESS_KEY  = "satlink_session_v3";
+
+const DEFAULT_USERS = [
+  { id: "admin", name: "Network Admin", pass: "admin123", role: "admin" },
+  { id: "user1", name: "User One",     pass: "1234",     role: "user"  },
+  { id: "user2", name: "User Two",     pass: "1234",     role: "user"  }
+];
+
+let me = null;
+
+function toast(t) {
+  const el = document.getElementById("toast");
+  el.textContent = t;
+  el.classList.add("show");
+  setTimeout(() => el.classList.remove("show"), 2200);
+}
+
+function getUsers() {
+  try {
+    const raw = localStorage.getItem(USERS_KEY);
+    if (!raw) {
+      localStorage.setItem(USERS_KEY, JSON.stringify(DEFAULT_USERS));
+      return DEFAULT_USERS.slice();
+    }
+    const list = JSON.parse(raw);
+    if (!Array.isArray(list) || list.length === 0) {
+      localStorage.setItem(USERS_KEY, JSON.stringify(DEFAULT_USERS));
+      return DEFAULT_USERS.slice();
+    }
+    // Ensure default users always exist
+    let changed = false;
+    DEFAULT_USERS.forEach(d => {
+      if (!list.some(u => u.id === d.id)) {
+        list.push(d);
+        changed = true;
+      }
+    });
+    if (changed) localStorage.setItem(USERS_KEY, JSON.stringify(list));
+    return list;
+  } catch (e) {
+    localStorage.setItem(USERS_KEY, JSON.stringify(DEFAULT_USERS));
+    return DEFAULT_USERS.slice();
+  }
+}
+
+function saveUsers(list) {
+  localStorage.setItem(USERS_KEY, JSON.stringify(list));
+}
+
+function getMsgs() {
+  try {
+    return JSON.parse(localStorage.getItem(MSGS_KEY) || "[]");
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveMsgs(list) {
+  localStorage.setItem(MSGS_KEY, JSON.stringify(list));
+}
+
+function resetAllData() {
+  localStorage.removeItem(USERS_KEY);
+  localStorage.removeItem(MSGS_KEY);
+  localStorage.removeItem(SESS_KEY);
+  me = null;
+  document.getElementById("appBox").classList.remove("show");
+  document.getElementById("loginBox").classList.add("show");
+  getUsers(); // re-seed
+  toast("Demo data reset. Login again.");
+}
+
+function doLogin() {
+  const id = (document.getElementById("loginId").value || "").trim().toLowerCase();
+  const pass = document.getElementById("loginPass").value || "";
+  if (!id || !pass) {
+    toast("Enter ID and password");
+    return;
+  }
+  const users = getUsers();
+  const found = users.find(u => u.id === id && u.pass === pass);
+  if (!found) {
+    toast("Wrong ID or password");
+    return;
+  }
+  me = found;
+  localStorage.setItem(SESS_KEY, JSON.stringify({ id: me.id }));
+  enterApp();
+  toast("Welcome " + me.name);
+}
+
+function doLogout() {
+  localStorage.removeItem(SESS_KEY);
+  me = null;
+  document.getElementById("appBox").classList.remove("show");
+  document.getElementById("loginBox").classList.add("show");
+  document.getElementById("loginPass").value = "";
+  toast("Logged out");
+}
+
+function enterApp() {
+  document.getElementById("loginBox").classList.remove("show");
+  document.getElementById("appBox").classList.add("show");
+  document.getElementById("whoName").textContent = me.id;
+  document.getElementById("whoRole").textContent = me.role === "admin" ? "ADMIN ID" : "USER ID";
+
+  // Show admin tab only for admin
+  const adminTab = document.getElementById("tab-admin");
+  if (me.role === "admin") {
+    adminTab.style.display = "block";
+  } else {
+    adminTab.style.display = "none";
+  }
+
+  fillToUserList();
+  renderUserList();
+  renderAdminUsers();
+  renderChat();
+  setWhen("now");
+  showPage("talk");
+}
+
+function showPage(name) {
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("on"));
+  const page = document.getElementById("page-" + name);
+  if (page) page.classList.add("on");
+
+  document.querySelectorAll(".tab").forEach(t => t.classList.remove("on"));
+  const tab = document.getElementById("tab-" + name);
+  if (tab) tab.classList.add("on");
+
+  // refresh lists when opening
+  if (name === "talk") {
+    fillToUserList();
+    renderChat();
+  }
+  if (name === "users") renderUserList();
+  if (name === "admin") renderAdminUsers();
+}
+
+function fillToUserList() {
+  const sel = document.getElementById("toUser");
+  const hint = document.getElementById("toUserHint");
+  const users = getUsers().filter(u => u.id !== me.id);
+
+  if (users.length === 0) {
+    sel.innerHTML = '<option value="">No other users</option>';
+    hint.textContent = "No other users found. Admin can add users.";
+    return;
+  }
+
+  sel.innerHTML = users.map(u =>
+    '<option value="' + u.id + '">' + u.name + ' (' + u.id + ') [' + u.role + ']</option>'
+  ).join("");
+
+  hint.textContent = users.length + " people available to message";
+}
+
+function renderUserList() {
+  const box = document.getElementById("userList");
+  const users = getUsers();
+  box.innerHTML = users.map(u => {
+    const you = (me && u.id === me.id) ? ' <span class="badge">you</span>' : '';
+    return '<div class="user-item"><b>' + u.name + '</b>' +
+      '<span class="badge ' + u.role + '">' + u.role + '</span>' + you +
+      '<div class="hint">ID: ' + u.id + '</div></div>';
+  }).join("");
+}
+
+function renderAdminUsers() {
+  const box = document.getElementById("adminUsers");
+  if (!me || me.role !== "admin") {
+    box.innerHTML = '<div class="empty">Admin only</div>';
+    return;
+  }
+  const users = getUsers();
+  box.innerHTML = users.map(u =>
+    '<div class="user-item"><b>' + u.id + '</b> – ' + u.name +
+    '<span class="badge ' + u.role + '">' + u.role + '</span></div>'
+  ).join("");
+}
+
+function adminAddUser() {
+  if (!me || me.role !== "admin") {
+    toast("Only admin can add users");
+    return;
+  }
+  const id = (document.getElementById("newId").value || "").trim().toLowerCase();
+  const name = (document.getElementById("newName").value || "").trim();
+  const pass = document.getElementById("newPass").value || "";
+  const role = document.getElementById("newRole").value || "user";
+
+  if (!id || !name || !pass) {
+    toast("Fill all fields");
+    return;
+  }
+  const users = getUsers();
+  if (users.some(u => u.id === id)) {
+    toast("ID already exists");
+    return;
+  }
+  users.push({ id: id, name: name, pass: pass, role: role });
+  saveUsers(users);
+
+  document.getElementById("newId").value = "";
+  document.getElementById("newName").value = "";
+  document.getElementById("newPass").value = "";
+
+  fillToUserList();
+  renderUserList();
+  renderAdminUsers();
+  toast("User added: " + id);
+}
+
+function pad(n) { return String(n).padStart(2, "0"); }
+
+function toLocalInput(d) {
+  return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) +
+    "T" + pad(d.getHours()) + ":" + pad(d.getMinutes());
+}
+
+function setWhen(mode) {
+  const el = document.getElementById("msgWhen");
+  const now = new Date();
+  if (mode === "past") now.setHours(now.getHours() - 6);
+  if (mode === "future") now.setDate(now.getDate() + 1);
+  el.value = toLocalInput(now);
+}
+
+function whenKind(iso) {
+  const t = new Date(iso).getTime();
+  const n = Date.now();
+  if (t < n - 60000) return "PAST";
+  if (t > n + 60000) return "FUTURE";
+  return "PRESENT";
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function sendMsg() {
+  if (!me) {
+    toast("Please login first");
+    return;
+  }
+  const to = document.getElementById("toUser").value;
+  const text = (document.getElementById("msgText").value || "").trim();
+  const when = document.getElementById("msgWhen").value;
+
+  if (!to) {
+    toast("Select a user to send message");
+    return;
+  }
+  if (!text) {
+    toast("Type a message");
+    return;
+  }
+  if (!when) {
+    toast("Set date and time");
+    return;
+  }
+
+  const msgs = getMsgs();
+  msgs.push({
+    id: Date.now() + "_" + Math.random().toString(16).slice(2),
+    from: me.id,
+    fromName: me.name,
+    to: to,
+    text: text,
+    when: new Date(when).toISOString(),
+    created: new Date().toISOString()
+  });
+  saveMsgs(msgs);
+  document.getElementById("msgText").value = "";
+  renderChat();
+  toast("Message sent to " + to);
+}
+
+function renderChat() {
+  if (!me) return;
+  const box = document.getElementById("chatBox");
+  const msgs = getMsgs()
+    .filter(m => m.from === me.id || m.to === me.id)
+    .sort((a, b) => new Date(a.when) - new Date(b.when));
+
+  if (!msgs.length) {
+    box.innerHTML = '<div class="empty">No messages yet. Send text to another user.</div>';
+    return;
+  }
+
+  box.innerHTML = msgs.map(m => {
+    const mine = m.from === me.id;
+    const kind = whenKind(m.when);
+    const time = new Date(m.when).toLocaleString();
+    const title = mine
+      ? ("You → " + m.to)
+      : (m.fromName + " (" + m.from + ") → you");
+    return '<div class="bubble ' + (mine ? "me" : "them") + '">' +
+      '<div class="meta">' + escapeHtml(title) + '</div>' +
+      '<div>' + escapeHtml(m.text) + '</div>' +
+      '<div class="when-tag">' + kind + " · " + time + '</div></div>';
+  }).join("");
+
+  box.scrollTop = box.scrollHeight;
+}
+
+// Boot
+(function boot() {
+  getUsers(); // ensure defaults exist
+  try {
+    const sess = localStorage.getItem(SESS_KEY);
+    if (sess) {
+      const s = JSON.parse(sess);
+      const found = getUsers().find(u => u.id === s.id);
+      if (found) {
+        me = found;
+        enterApp();
+      }
+    }
+  } catch (e) {}
+})();
+</script>
+</body>
+</html>
